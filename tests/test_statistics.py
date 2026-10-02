@@ -22,7 +22,9 @@ from marketrisk.statistics import (
 def returns() -> pd.DataFrame:
     """Small artificial returns with simple, hand-computable moments."""
     index = pd.date_range("2024-01-02", periods=5, freq="B")
-    return pd.DataFrame({"A": [0.01, -0.02, 0.03, 0.0, -0.01], "B": [0.02, -0.04, 0.06, 0.0, -0.02]}, index=index)
+    return pd.DataFrame(
+        {"A": [0.01, -0.02, 0.03, 0.0, -0.01], "B": [0.02, -0.04, 0.06, 0.0, -0.02]}, index=index
+    )
 
 
 @pytest.fixture

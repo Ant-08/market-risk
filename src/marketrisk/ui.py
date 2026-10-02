@@ -73,8 +73,10 @@ def sidebar_selection() -> tuple[list[str], dt.date, dt.date]:
 
         _restore("custom_ticker", "")
         st.text_input(
-            "Other ticker (optional)", key=_widget_key("custom_ticker"),
-            on_change=_store, args=("custom_ticker",),
+            "Other ticker (optional)",
+            key=_widget_key("custom_ticker"),
+            on_change=_store,
+            args=("custom_ticker",),
             help="Any Yahoo Finance symbol, e.g. GOOGL, TSLA, ^FCHI, BTC-USD.",
         )
         custom = st.session_state["custom_ticker"].strip().upper()
@@ -85,19 +87,26 @@ def sidebar_selection() -> tuple[list[str], dt.date, dt.date]:
                 st.session_state.pop(key, None)
             _restore(key, default)
             st.selectbox(
-                f"Asset {key[-1]}", options, format_func=_label,
-                key=_widget_key(key), on_change=_store, args=(key,),
+                f"Asset {key[-1]}",
+                options,
+                format_func=_label,
+                key=_widget_key(key),
+                on_change=_store,
+                args=(key,),
             )
 
         _restore("start", today.replace(year=today.year - 5))
-        st.date_input("Start date", key=_widget_key("start"), max_value=today,
-                      on_change=_store, args=("start",))
+        st.date_input(
+            "Start date", key=_widget_key("start"), max_value=today, on_change=_store, args=("start",)
+        )
         _restore("end", today)
-        st.date_input("End date", key=_widget_key("end"), max_value=today,
-                      on_change=_store, args=("end",))
+        st.date_input("End date", key=_widget_key("end"), max_value=today, on_change=_store, args=("end",))
 
-    return [st.session_state["asset_1"], st.session_state["asset_2"]], \
-        st.session_state["start"], st.session_state["end"]
+    return (
+        [st.session_state["asset_1"], st.session_state["asset_2"]],
+        st.session_state["start"],
+        st.session_state["end"],
+    )
 
 
 def get_market_data() -> MarketData:

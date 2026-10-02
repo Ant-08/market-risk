@@ -36,14 +36,15 @@ def test_student_has_fatter_tails_than_gaussian():
     student = StudentSimulator(MEAN, COV, random_state=0, df=5).sample_frame(100_000)
     assert (student.kurt() > 2).all()
     assert (gaussian.kurt().abs() < 0.1).all()
-    beyond = (extreme_counts(student, 4.0)["count"] > extreme_counts(gaussian, 4.0)["count"])
+    beyond = extreme_counts(student, 4.0)["count"] > extreme_counts(gaussian, 4.0)["count"]
     assert beyond.all()
 
 
 def test_from_returns_and_sample_frame():
     index = pd.date_range("2024-01-01", periods=50, freq="B")
-    returns = pd.DataFrame(np.random.default_rng(1).normal(size=(50, 2)) * 0.01, columns=["AAPL", "MSFT"],
-                           index=index)
+    returns = pd.DataFrame(
+        np.random.default_rng(1).normal(size=(50, 2)) * 0.01, columns=["AAPL", "MSFT"], index=index
+    )
     sim = GaussianSimulator.from_returns(returns, random_state=0)
     np.testing.assert_allclose(sim.mean, returns.mean())
     np.testing.assert_allclose(sim.covariance, returns.cov())
@@ -59,8 +60,12 @@ def test_singular_covariance_is_supported():
 
 @pytest.mark.parametrize(
     "mean, cov",
-    [([0.0, 0.0], [[1.0, 0.0], [0.5, 1.0]]), ([0.0, 0.0], [[1.0, 0.0, 0.0]] * 3), ([[0.0]], [[1.0]]),
-     ([np.nan, 0.0], np.eye(2))],
+    [
+        ([0.0, 0.0], [[1.0, 0.0], [0.5, 1.0]]),
+        ([0.0, 0.0], [[1.0, 0.0, 0.0]] * 3),
+        ([[0.0]], [[1.0]]),
+        ([np.nan, 0.0], np.eye(2)),
+    ],
     ids=["asymmetric", "wrong-dimension", "2d-mean", "nan-mean"],
 )
 def test_invalid_parameters_raise(mean, cov):
@@ -97,7 +102,13 @@ def test_compare_extremes_and_descriptive():
     sim = GaussianSimulator(MEAN, COV, random_state=0, columns=["A", "B"])
     datasets = {"Real": sim.sample_frame(500), "Gaussian": sim.sample_frame(500)}
     table = compare_extremes(datasets)
-    assert list(table.columns) == ["Real count", "Real %", "Gaussian count", "Gaussian %", "Gaussian theory %"]
+    assert list(table.columns) == [
+        "Real count",
+        "Real %",
+        "Gaussian count",
+        "Gaussian %",
+        "Gaussian theory %",
+    ]
     assert table["Gaussian theory %"].iloc[0] == pytest.approx(0.0455, abs=1e-4)
     assert list(compare_descriptive(datasets, "A").index) == ["Real", "Gaussian"]
     with pytest.raises(ValueError):

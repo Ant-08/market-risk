@@ -30,13 +30,17 @@ left, right = st.columns([3, 2])
 with left:
     st.subheader("Joint daily returns")
     st.plotly_chart(
-        scatter_figure(returns, labels=(a, b), mean=mu, covariance=sigma, n_std=n_std,
-                       outliers=flagged["outlier"])
+        scatter_figure(
+            returns, labels=(a, b), mean=mu, covariance=sigma, n_std=n_std, outliers=flagged["outlier"]
+        )
     )
 with right:
     st.subheader("Mean vector")
-    st.latex(r"\mu = \begin{pmatrix} \mu_1 \\ \mu_2 \end{pmatrix} = \begin{pmatrix}"
-             + rf"{mu.iloc[0]:.2e} \\ {mu.iloc[1]:.2e}" + r"\end{pmatrix}")
+    st.latex(
+        r"\mu = \begin{pmatrix} \mu_1 \\ \mu_2 \end{pmatrix} = \begin{pmatrix}"
+        + rf"{mu.iloc[0]:.2e} \\ {mu.iloc[1]:.2e}"
+        + r"\end{pmatrix}"
+    )
     st.dataframe(mu.rename("mean").to_frame().style.format("{:.4%}"))
 
     st.subheader("Covariance matrix")
@@ -72,6 +76,7 @@ st.caption(
     f"exp(-{n_std:g}²/2) = {expected:.2%}."
 )
 outliers = flagged[flagged["outlier"]].drop(columns="outlier").sort_values("mahalanobis", ascending=False)
+outliers.index = outliers.index.strftime("%Y-%m-%d")
 st.dataframe(
     outliers.style.format({a: "{:.2%}", b: "{:.2%}", "mahalanobis": "{:.2f}"}),
     height=min(400, 38 + 35 * len(outliers)),

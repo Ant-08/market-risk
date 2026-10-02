@@ -55,8 +55,13 @@ class GaussianSimulator:
     @classmethod
     def from_returns(cls, returns: pd.DataFrame, random_state=None, **kwargs) -> GaussianSimulator:
         """Build a simulator whose parameters are estimated from a returns DataFrame."""
-        return cls(mean_vector(returns), covariance_matrix(returns), random_state=random_state,
-                   columns=list(returns.columns), **kwargs)
+        return cls(
+            mean_vector(returns),
+            covariance_matrix(returns),
+            random_state=random_state,
+            columns=list(returns.columns),
+            **kwargs,
+        )
 
     @property
     def dim(self) -> int:
