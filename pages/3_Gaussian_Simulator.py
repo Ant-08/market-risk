@@ -2,7 +2,13 @@
 
 import streamlit as st
 
-from marketrisk.plots import COLORS, axis_ranges, histogram_figure, returns_time_figure, scatter_figure
+from marketrisk.plots import (
+    DATASET_COLORS,
+    axis_ranges,
+    histogram_figure,
+    returns_time_figure,
+    scatter_figure,
+)
 from marketrisk.simulation import GaussianSimulator, StudentSimulator, student_df_from_kurtosis
 from marketrisk.statistics import (
     compare_descriptive,
@@ -38,9 +44,15 @@ n_std = c2.slider("Ellipse size (standard deviations)", 1.0, 3.0, 2.0, step=0.5)
 with c3:
     use_student = st.toggle("Also compare with a Student-t model (extension)")
     default_df = student_df_from_kurtosis(real_stats["excess kurtosis"].mean())
-    df = st.slider("Student degrees of freedom", 2.5, 30.0, round(default_df * 2) / 2, step=0.5,
-                   disabled=not use_student,
-                   help="Default chosen so that the Student kurtosis 6/(ν-4) matches the average real kurtosis.")
+    df = st.slider(
+        "Student degrees of freedom",
+        2.5,
+        30.0,
+        round(default_df * 2) / 2,
+        step=0.5,
+        disabled=not use_student,
+        help="Default chosen so that the Student kurtosis 6/(ν-4) matches the average real kurtosis.",
+    )
 
 # --- Simulation ---------------------------------------------------------------
 gaussian = GaussianSimulator.from_returns(real, random_state=int(seed))
@@ -56,14 +68,24 @@ with st.expander("Estimated parameters μ and Σ (used by every model)"):
 
 # --- Scatter plots with ellipses ---------------------------------------------
 st.subheader("Scatter plots and covariance ellipses")
-st.caption(f"Same axes for every panel. The black ellipse is the {n_std:g}-sd ellipse of the "
-           "real data's μ and Σ; red diamonds lie outside it.")
+st.caption(
+    f"Same axes for every panel. The orange ellipse is the {n_std:g}-sd ellipse of the "
+    "real data's μ and Σ; red diamonds lie outside it."
+)
 x_range, y_range = axis_ranges(*datasets.values())
-for col, (i, (name, sample)) in zip(st.columns(len(datasets)), enumerate(datasets.items())):
+for col, (i, (name, sample)) in zip(st.columns(len(datasets)), enumerate(datasets.items()), strict=True):
     flagged = detect_outliers(sample, n_std=n_std)
-    fig = scatter_figure(sample, labels=(a, b), mean=gaussian.mean, covariance=gaussian.covariance,
-                         n_std=n_std, outliers=flagged["outlier"], color=COLORS[2 * i % len(COLORS)],
-                         name=name, title=f"{name}: {flagged['outlier'].mean():.1%} outside")
+    fig = scatter_figure(
+        sample,
+        labels=(a, b),
+        mean=gaussian.mean,
+        covariance=gaussian.covariance,
+        n_std=n_std,
+        outliers=flagged["outlier"],
+        color=DATASET_COLORS[i],
+        name=name,
+        title=f"{name}: {flagged['outlier'].mean():.1%} outside",
+    )
     fig.update_xaxes(range=x_range)
     fig.update_yaxes(range=y_range)
     col.plotly_chart(fig, key=f"scatter_{name}")
@@ -71,36 +93,59 @@ for col, (i, (name, sample)) in zip(st.columns(len(datasets)), enumerate(dataset
 # --- Histograms ---------------------------------------------------------------
 st.subheader("Distribution of each asset's returns")
 log_y = st.toggle("Logarithmic density axis (shows the tails)", value=True)
-for col, ticker in zip(st.columns(2), (a, b)):
+for col, ticker in zip(st.columns(2), (a, b), strict=True):
     col.plotly_chart(
-        histogram_figure({name: sample[ticker] for name, sample in datasets.items()},
-                         mean=real_stats.loc[ticker, "mean"], std=real_stats.loc[ticker, "std"],
-                         title=ticker, log_y=log_y),
+        histogram_figure(
+            {name: sample[ticker] for name, sample in datasets.items()},
+            mean=real_stats.loc[ticker, "mean"],
+            std=real_stats.loc[ticker, "std"],
+            title=ticker,
+            log_y=log_y,
+        ),
         key=f"hist_{ticker}",
     )
 
 # --- Extreme observations ------------------------------------------------------
 st.subheader("Extreme observations: |r − μ| > 2σ")
 extremes = compare_extremes(datasets, n_sigma=2.0)
-st.dataframe(extremes.style.format({c: "{:.2%}" for c in extremes.columns if c.endswith("%")}
-                                   | {c: "{:.0f}" for c in extremes.columns if c.endswith("count")}))
+st.dataframe(
+    extremes.style.format(
+        {c: "{:.2%}" for c in extremes.columns if c.endswith("%")}
+        | {c: "{:.0f}" for c in extremes.columns if c.endswith("count")}
+    )
+)
 expected3 = gaussian_outside_probability(3.0, dim=1) * len(real)
 tails = tail_summary(datasets)
 st.markdown("**Further in the tails**")
-st.dataframe(tails.style.format("{:.0f}").format("{:.1f}", subset=(tails.index.str.contains("move"), slice(None))))
-st.caption(f"Gaussian theory: {expected3:.1f} days beyond 3σ per asset "
-           f"out of {len(real)}.")
+st.dataframe(
+    tails.style.format("{:.0f}").format("{:.1f}", subset=(tails.index.str.contains("move"), slice(None)))
+)
+st.caption(f"Gaussian theory: {expected3:.1f} days beyond 3σ per asset out of {len(real)}.")
 
 st.subheader("Returns over time")
-st.plotly_chart(returns_time_figure({name: sample[a] for name, sample in datasets.items()},
-                                    title=f"{a} daily log-returns"), key="time")
+st.plotly_chart(
+    returns_time_figure(
+        {name: sample[a] for name, sample in datasets.items()}, title=f"{a} daily log-returns"
+    ),
+    key="time",
+)
 
 st.subheader("Summary statistics: real vs simulated")
 for ticker in (a, b):
     st.markdown(f"**{ticker}**")
     table = compare_descriptive(datasets, ticker)
-    st.dataframe(table.style.format({"mean": "{:.4%}", "std": "{:.3%}", "min": "{:.2%}", "max": "{:.2%}",
-                                     "skewness": "{:.2f}", "excess kurtosis": "{:.2f}"}))
+    st.dataframe(
+        table.style.format(
+            {
+                "mean": "{:.4%}",
+                "std": "{:.3%}",
+                "min": "{:.2%}",
+                "max": "{:.2%}",
+                "skewness": "{:.2f}",
+                "excess kurtosis": "{:.2f}",
+            }
+        )
+    )
 
 # --- Interpretation ------------------------------------------------------------
 st.subheader("Interpretation")
@@ -112,20 +157,21 @@ joint_real, joint_gauss = tails.loc["days with all assets beyond 2σ", ["Real", 
 joint_sentence = (
     f"Extreme days are also more often **shared by both assets**: {joint_real:.0f} days with both beyond 2σ "
     f"in the real data, against {joint_gauss:.0f} in the simulation."
-    if joint_real > joint_gauss else
-    f"Days on which both assets are beyond 2σ are not more frequent in the real data ({joint_real:.0f}) "
+    if joint_real > joint_gauss
+    else f"Days on which both assets are beyond 2σ are not more frequent in the real data ({joint_real:.0f}) "
     f"than in the simulation ({joint_gauss:.0f}) for this pair."
 )
 joint_bullet = (
     "- the **dependence in the tails**: joint extreme days are more frequent than the correlation alone implies;\n"
-    if joint_real > joint_gauss else ""
+    if joint_real > joint_gauss
+    else ""
 )
 student_note = (
     f"With the Student-t extension (ν = {df:g}), same μ and Σ but heavier tails, the days beyond 3σ become "
     f"{tails.loc[f'{a} days beyond 3σ', 'Student-t']:.0f} ({a}) and {tails.loc[f'{b} days beyond 3σ', 'Student-t']:.0f} ({b}), "
     f"against {tails.loc[f'{a} days beyond 3σ', 'Real']:.0f} and {tails.loc[f'{b} days beyond 3σ', 'Real']:.0f} in the real data."
-    if use_student else
-    "Switch on the Student-t extension above to compare with a model having the same μ and Σ but heavier tails."
+    if use_student
+    else "Switch on the Student-t extension above to compare with a model having the same μ and Σ but heavier tails."
 )
 st.markdown(
     f"""
@@ -140,10 +186,10 @@ fatter tails than the Gaussian density.
 **Are extreme observations equally frequent?** At the 2σ threshold the frequencies are similar:
 {real_pct[a]:.1%} ({a}) and {real_pct[b]:.1%} ({b}) of real days, against {gauss_pct[a]:.1%} and
 {gauss_pct[b]:.1%} in the simulation (theory 4.55%). The difference is further in the tails: beyond 3σ,
-the real data have **{tails.loc[f'{a} days beyond 3σ', 'Real']:.0f} and {tails.loc[f'{b} days beyond 3σ', 'Real']:.0f} days**
+the real data have **{tails.loc[f"{a} days beyond 3σ", "Real"]:.0f} and {tails.loc[f"{b} days beyond 3σ", "Real"]:.0f} days**
 against about **{expected3:.1f}** expected under the Gaussian model, and the
-largest real moves reach **{tails.loc[f'{a} largest move (σ)', 'Real']:.1f}σ and {tails.loc[f'{b} largest move (σ)', 'Real']:.1f}σ**, against
-{tails.loc[f'{a} largest move (σ)', 'Gaussian']:.1f}σ and {tails.loc[f'{b} largest move (σ)', 'Gaussian']:.1f}σ in the simulation. {joint_sentence}
+largest real moves reach **{tails.loc[f"{a} largest move (σ)", "Real"]:.1f}σ and {tails.loc[f"{b} largest move (σ)", "Real"]:.1f}σ**, against
+{tails.loc[f"{a} largest move (σ)", "Gaussian"]:.1f}σ and {tails.loc[f"{b} largest move (σ)", "Gaussian"]:.1f}σ in the simulation. {joint_sentence}
 
 **Does the Gaussian model reproduce all aspects of the real data?** No. It reproduces the mean, the
 variances and the linear correlation, which are its only parameters, but not:
