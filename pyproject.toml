@@ -1,0 +1,31 @@
+[project]
+name = "finance-python"
+version = "0.1.0"
+description = "Multi-page Streamlit app comparing real market returns with a Gaussian model."
+readme = "README.md"
+authors = [
+    { name = "Antoine Riollet", email = "antoine.riollet08@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.5.3",
+    "pandas>=3.0.6",
+    "plotly>=7.1.0",
+    "streamlit>=1.64.0",
+    "yfinance>=1.7.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.22,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "marketrisk"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
