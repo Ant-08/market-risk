@@ -198,3 +198,76 @@ def scatter_figure(data, labels: tuple[str, str], mean=None, covariance=None, n_
         legend=dict(orientation="h", y=-0.15),
     )
     return fig
+
+
+def histogram_figure(samples: dict[str, pd.Series], mean: float | None = None, std: float | None = None,
+                     title: str | None = None, log_y: bool = False, bins: int = 80) -> go.Figure:
+    """Overlaid density histograms of one asset's returns in several datasets.
+
+    Parameters
+    ----------
+    samples : dict of str to pd.Series
+        For example ``{"Real": real[a], "Gaussian": simulated[a]}``.
+    mean, std : float, optional
+        If both are given, the density of ``N(mean, std^2)`` is drawn on top.
+    title : str, optional
+        Figure title.
+    log_y : bool, default False
+        Use a logarithmic density axis, which makes the tails visible.
+    bins : int, default 80
+        Number of bins, shared by all datasets.
+
+    Returns
+    -------
+    go.Figure
+    """
+    values = np.concatenate([np.asarray(s, dtype=float) for s in samples.values()])
+    edges = np.linspace(values.min(), values.max(), bins + 1)
+    fig = go.Figure()
+    for i, (name, series) in enumerate(samples.items()):
+        fig.add_histogram(
+            x=np.asarray(series, dtype=float), name=name, histnorm="probability density",
+            xbins=dict(start=edges[0], end=edges[-1], size=edges[1] - edges[0]),
+            marker_color=COLORS[(2 * i) % len(COLORS)], opacity=0.55,
+        )
+    if mean is not None and std is not None:
+        x = np.linspace(edges[0], edges[-1], 400)
+        density = np.exp(-0.5 * ((x - mean) / std) ** 2) / (std * np.sqrt(2 * np.pi))
+        fig.add_scatter(x=x, y=density, mode="lines", name="N(μ, σ²) density",
+                        line=dict(color="#111827", width=1.5))
+    fig.update_layout(
+        barmode="overlay", title=title, height=380, margin=dict(t=50 if title else 20, b=30),
+        xaxis=dict(title="daily log-return", tickformat=".0%"), yaxis_title="density",
+        legend=dict(orientation="h", y=-0.2),
+    )
+    if log_y:
+        fig.update_yaxes(type="log")
+    return fig
+
+
+def axis_ranges(*datasets, margin: float = 0.05) -> tuple[list[float], list[float]]:
+    """Common x and y ranges covering several 2-column datasets.
+
+    Used to draw real and simulated scatter plots on identical axes.
+    """
+    stacked = np.vstack([np.asarray(d, dtype=float) for d in datasets])
+    low, high = stacked.min(axis=0), stacked.max(axis=0)
+    pad = margin * (high - low)
+    return [low[0] - pad[0], high[0] + pad[0]], [low[1] - pad[1], high[1] + pad[1]]
+
+
+def returns_time_figure(samples: dict[str, pd.Series], title: str | None = None) -> go.Figure:
+    """Daily returns over time, one panel per dataset, on a shared y axis.
+
+    Comparing real and simulated series this way shows volatility clustering:
+    real returns alternate calm and turbulent periods, i.i.d. simulated ones do not.
+    """
+    fig = make_subplots(rows=len(samples), cols=1, shared_xaxes=True, shared_yaxes=True,
+                        subplot_titles=list(samples), vertical_spacing=0.08)
+    for i, (name, series) in enumerate(samples.items()):
+        fig.add_scatter(x=series.index, y=series.to_numpy(), mode="lines", name=name,
+                        line=dict(color=COLORS[(2 * i) % len(COLORS)], width=0.8), row=i + 1, col=1)
+        fig.update_yaxes(tickformat=".0%", row=i + 1, col=1)
+    fig.update_layout(title=title, height=200 + 180 * len(samples), showlegend=False,
+                      margin=dict(t=60 if title else 40, b=30))
+    return fig

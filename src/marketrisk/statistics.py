@@ -212,3 +212,123 @@ def detect_outliers(returns: pd.DataFrame, n_std: float = 2.0) -> pd.DataFrame:
     """
     distances = mahalanobis_distances(returns, mean_vector(returns), covariance_matrix(returns))
     return returns.assign(mahalanobis=distances, outlier=distances > n_std)
+
+
+def extreme_counts(returns: pd.DataFrame, n_sigma: float = 2.0) -> pd.DataFrame:
+    """Count, for each asset, the observations with ``|r - mu| > n_sigma * sigma``.
+
+    ``mu`` and ``sigma`` are the sample mean and standard deviation of each
+    column of ``returns``.
+
+    Parameters
+    ----------
+    returns : pd.DataFrame
+        Returns (real or simulated), one column per asset.
+    n_sigma : float, default 2.0
+        Threshold in standard deviations.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per asset with columns ``count``, ``n`` and ``proportion``.
+    """
+    validate_returns(returns)
+    if n_sigma <= 0:
+        raise ValueError("n_sigma must be positive.")
+    extreme = (returns - returns.mean()).abs() > n_sigma * returns.std()
+    counts = extreme.sum()
+    return pd.DataFrame({"count": counts, "n": len(returns), "proportion": counts / len(returns)})
+
+
+def compare_extremes(datasets: dict[str, pd.DataFrame], n_sigma: float = 2.0) -> pd.DataFrame:
+    """Compare the frequency of extreme observations across several datasets.
+
+    Parameters
+    ----------
+    datasets : dict of str to pd.DataFrame
+        For example ``{"Real": real_returns, "Gaussian": simulated_returns}``;
+        all DataFrames must have the same columns.
+    n_sigma : float, default 2.0
+        Threshold in standard deviations.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per asset; for each dataset a ``"<name> count"`` and a
+        ``"<name> %"`` column, plus the theoretical Gaussian proportion
+        ``P(|Z| > n_sigma)``.
+    """
+    if not datasets:
+        raise ValueError("datasets must not be empty.")
+    columns = None
+    table = {}
+    for name, data in datasets.items():
+        if columns is None:
+            columns = list(data.columns)
+        elif list(data.columns) != columns:
+            raise ValueError(f"Dataset {name!r} does not have the same columns as the others.")
+        counts = extreme_counts(data, n_sigma)
+        table[f"{name} count"] = counts["count"]
+        table[f"{name} %"] = counts["proportion"]
+    result = pd.DataFrame(table)
+    result["Gaussian theory %"] = gaussian_outside_probability(n_sigma, dim=1)
+    return result
+
+
+def compare_descriptive(datasets: dict[str, pd.DataFrame], asset: str) -> pd.DataFrame:
+    """Descriptive statistics of one asset in several datasets, one row per dataset.
+
+    Parameters
+    ----------
+    datasets : dict of str to pd.DataFrame
+        For example ``{"Real": real_returns, "Gaussian": simulated_returns}``.
+    asset : str
+        Column to summarise; it must exist in every dataset.
+
+    Returns
+    -------
+    pd.DataFrame
+        The columns of :func:`descriptive_statistics` (without the number of
+        observations), indexed by dataset name.
+    """
+    missing = [name for name, data in datasets.items() if asset not in data.columns]
+    if missing:
+        raise ValueError(f"Asset {asset!r} is missing from datasets {missing}.")
+    rows = {name: descriptive_statistics(data[[asset]]).loc[asset] for name, data in datasets.items()}
+    return pd.DataFrame(rows).T.drop(columns="observations")
+
+
+def largest_moves(returns: pd.DataFrame) -> pd.Series:
+    """Largest absolute standardised return ``max |r - mu| / sigma`` of each asset."""
+    validate_returns(returns)
+    return ((returns - returns.mean()).abs() / returns.std()).max()
+
+
+def joint_extremes(returns: pd.DataFrame, n_sigma: float = 2.0) -> int:
+    """Number of days on which *every* asset satisfies ``|r - mu| > n_sigma * sigma``.
+
+    For independent observations of a Gaussian vector this co-occurrence is
+    driven by the correlation only; a higher count in real data reveals a
+    stronger dependence in the tails (assets crash together).
+    """
+    validate_returns(returns)
+    extreme = (returns - returns.mean()).abs() > n_sigma * returns.std()
+    return int(extreme.all(axis=1).sum())
+
+
+def tail_summary(datasets: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """Tail indicators of several datasets, one column per dataset.
+
+    Rows: days beyond 3 standard deviations for each asset, days on which all
+    assets are beyond 2 standard deviations, and the largest standardised move
+    of each asset (in standard deviations).
+    """
+    columns = {}
+    for name, data in datasets.items():
+        beyond3 = extreme_counts(data, 3.0)["count"]
+        moves = largest_moves(data)
+        column = {f"{asset} days beyond 3σ": beyond3[asset] for asset in data.columns}
+        column["days with all assets beyond 2σ"] = joint_extremes(data, 2.0)
+        column |= {f"{asset} largest move (σ)": moves[asset] for asset in data.columns}
+        columns[name] = column
+    return pd.DataFrame(columns).astype(float)
