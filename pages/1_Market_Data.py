@@ -23,20 +23,28 @@ st.plotly_chart(price_figure(prices, normalize=normalize))
 
 st.subheader("Daily log-returns")
 st.latex(r"r_t = \log\left(\frac{P_t}{P_{t-1}}\right)")
-st.dataframe(returns.head(10).style.format("{:.4%}"))
+st.dataframe(returns.head(10).set_axis(returns.index[:10].strftime("%Y-%m-%d")).style.format("{:.4%}"))
 
 st.subheader("Descriptive statistics")
 stats = descriptive_statistics(returns)
 st.dataframe(
     stats.style.format(
-        {"observations": "{:.0f}", "mean": "{:.4%}", "std": "{:.4%}", "min": "{:.2%}",
-         "max": "{:.2%}", "skewness": "{:.2f}", "excess kurtosis": "{:.2f}"}
+        {
+            "observations": "{:.0f}",
+            "mean": "{:.4%}",
+            "std": "{:.4%}",
+            "min": "{:.2%}",
+            "max": "{:.2%}",
+            "skewness": "{:.2f}",
+            "excess kurtosis": "{:.2f}",
+        }
     )
 )
 
 st.subheader("Bottom 5 and top 5 daily returns")
-for col, ticker in zip(st.columns(len(returns.columns)), returns.columns):
+for col, ticker in zip(st.columns(len(returns.columns)), returns.columns, strict=True):
     bottom, top = extreme_returns(returns[ticker], k=5)
+    bottom.index, top.index = bottom.index.strftime("%Y-%m-%d"), top.index.strftime("%Y-%m-%d")
     with col:
         st.markdown(f"**{ticker}**")
         left, right = st.columns(2)
